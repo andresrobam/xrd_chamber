@@ -2,25 +2,16 @@
  
 LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
 
-int lcd_key     = 0;
-int adc_key_in  = 0;
- 
-#define btnRIGHT  0
-#define btnUP     1
-#define btnDOWN   2
-#define btnLEFT   3
-#define btnSELECT 4
-#define btnNONE   5
+const int buttonPin = A0;
 
-double temp1 = 2.35534;
-double temp2 = 12.5;
-int out1 = 40;
-int out2 = 94;
-double set1 = 2.35534;
-double set2 = 12.5;
-
-double sensor_rh = 9.00;
+double sample_temp = 2.35;
+double chamber_temp = 82.25;
+double sample_set = 75.47;
+double chamber_set = 12.95;
+int sample_out = 40;
+int chamber_out = 94;
 double sensor_temp = 12.12;
+double sensor_rh = 9.00;
 
 boolean right;
 boolean up;
@@ -37,16 +28,28 @@ boolean prev_select;
 boolean edit;
 boolean freeze;
 
-int pos = 0;
+int cursor_position;
 
 int menu;
 int max_menu = 2;
 
-int info1 = 0;
-int info2 = 1;
-int info3 = 2;
+int sample_info = 0;
+int chamber_info = 1;
+int sensor_info = 2;
+ 
+void setup() {
 
-void read_LCD_buttons()  {
+  pinMode(buttonPin, INPUT);
+  lcd.begin(16, 2);
+}
+
+void loop() {
+  
+  readButtons();
+  drawScreen();
+}
+
+void readButtons() {
   
   prev_right = right;
   prev_up = up;
@@ -54,67 +57,38 @@ void read_LCD_buttons()  {
   prev_left = left;
   prev_select = select;
   
-  adc_key_in = analogRead(0);
+  int adc_key_in = analogRead(buttonPin);
   
   right = false;
   up = false;
   down = false;
   left = false;
   select = false;
-   
-  if (adc_key_in > 1000) return;
-   
-  if (adc_key_in < 50) {
-    right = true;
-    return;
-  }
-  if (adc_key_in < 250) {
-    up = true;
-    return;
-  }
-  if (adc_key_in < 450) {
-    down = true;
-    return;
-  }
-  if (adc_key_in < 650) {
-    left = true;
-    return;
-  }
-  if (adc_key_in < 850) {
-    select = true;
-    return;
-  }
+  
+  if (adc_key_in < 50) right = true;
+  else if (adc_key_in < 250) up = true;
+  else if (adc_key_in < 450) down = true;
+  else if (adc_key_in < 650) left = true;
+  else if (adc_key_in < 850) select = true;
 }
  
-void setup(){
-   lcd.begin(16, 2);
-}
-  
-void loop() {
-  
-  read_LCD_buttons();
+void drawScreen() {
 
-  if (menu == info1) {
+  if (menu == sample_info) {
 
     if (!edit) {
       
       lcd.setCursor(0,0);
-      lcd.print("Sample  T: ");
-      if (temp1 < 10) {
-        lcd.print(" ");
-      }
-      lcd.print(temp1);
+      lcd.print("Sample  T:");
+      printDouble(sample_temp);
   
       lcd.setCursor(0,1);
-      lcd.print(out1);
+      lcd.print(sample_out);
       lcd.print("%");
   
       lcd.setCursor(8,1);
-      lcd.print("S: ");
-      if (set1 < 10) {
-        lcd.print(" ");
-      }
-      lcd.print(set1);
+      lcd.print("S:");
+      printDouble(sample_set);
 
       if (down && !prev_down) menuUp();
       else if (up && !prev_up) menuDown();
@@ -125,83 +99,77 @@ void loop() {
       lcd.print("Sample setpoint");
   
       lcd.setCursor(0,1);
-      if (set1 < 10) {
-        lcd.print(0);
-      }
-      lcd.print(set1);
+      if (sample_set < 10) lcd.print(0);
+      lcd.print(sample_set);
 
       freeze = true;
       lcd.setCursor(4,1);
-      pos = 4;
+      cursor_position = 4;
     }
     else if (freeze) {
 
       if (left && !prev_left) cursorLeft();
       else if (right && !prev_right) cursorRight();
-      else if (down && !prev_down) cursorDown();
-      else if (up && !prev_up) cursorUp();
+      else if (down && !prev_down) setTemp(false);
+      else if (up && !prev_up) setTemp(true);
     }
     
-    if (select && !prev_select) {
-      menuEdit();
-    }
+    if (select && !prev_select) menuEdit();
   }
-  else if (menu == info2) {
+  else if (menu == chamber_info) {
+
+    if (!edit) {
+      
+      lcd.setCursor(0,0);
+      lcd.print("Chamber T:");
+      printDouble(chamber_temp);
   
-    lcd.setCursor(0,0);
-    lcd.print("Chamber T: ");
-    if (temp2 < 10) {
-      lcd.print(" ");
-    }
-    lcd.print(temp2);
+      lcd.setCursor(0,1);
+      lcd.print(chamber_out);
+      lcd.print("%");
+  
+      lcd.setCursor(8,1);
+      lcd.print("S:");
+      printDouble(chamber_set);
 
-    lcd.setCursor(0,1);
-    lcd.print(out2);
-    lcd.print("%");
+      if (down && !prev_down) menuUp();
+      else if (up && !prev_up) menuDown();
+    }
+    else if (!freeze) {
 
-    lcd.setCursor(8,1);
-    lcd.print("S: ");
-    if (set2 < 10) {
-      lcd.print(" ");
-    }
-    lcd.print(set2);
+      lcd.setCursor(0,0);
+      lcd.print("Chamber setpoint");
+  
+      lcd.setCursor(0,1);
+      if (chamber_set < 10) lcd.print(0);
+      lcd.print(chamber_set);
 
-    if (down && !prev_down && !edit) {
-      menuUp();
+      freeze = true;
+      lcd.setCursor(4,1);
+      cursor_position = 4;
     }
-    else if (up && !prev_up && !edit) {
-      menuDown();
+    else if (freeze) {
+
+      if (left && !prev_left) cursorLeft();
+      else if (right && !prev_right) cursorRight();
+      else if (down && !prev_down) setTemp(false);
+      else if (up && !prev_up) setTemp(true);
     }
-    else if (select && !select) {
-      edit = true;
-    }
+    
+    if (select && !prev_select) menuEdit();
   }
-  else if (menu == info3) {
-  
-    lcd.setCursor(0,0);
-    lcd.print("Sensor  T: ");
-    if (sensor_temp < 10) {
-      lcd.print(" ");
-    }
-    lcd.print(sensor_temp);
-  
-    lcd.setCursor(5,1);
-    lcd.print("RH: ");
-    if (sensor_rh < 100) {
-      lcd.print(" ");
-    }
-    if (sensor_rh < 10) {
-      lcd.print(" ");
-    }
-    lcd.print(sensor_rh);
-    lcd.print("%");
+  else if (menu == sensor_info) {
 
-    if (down && !prev_down) {
-      menuUp();
-    }
-    else if (up && !prev_up) {
-      menuDown();
-    }
+    lcd.setCursor(0,0);
+    lcd.print("Sensor  T:");
+    printDouble(sensor_temp);
+  
+    lcd.setCursor(7,1);
+    lcd.print("RH:");
+    printDouble(sensor_rh);
+
+    if (down && !prev_down) menuUp();
+    else if (up && !prev_up) menuDown();
   }
 }
 
@@ -224,14 +192,8 @@ void menuEdit() {
   menuClear();
   edit = !edit;
 
-  if (edit) {
-
-    lcd.blink();
-  }
-  else {
-
-    freeze = false;
-  }
+  if (edit) lcd.blink();
+  else freeze = false;
 }
 
 void menuClear() {
@@ -242,47 +204,68 @@ void menuClear() {
 
 void cursorLeft() {
 
-  pos--;
-  if (pos < 0) pos = 0;
-  else if (pos == 2) pos = 1;
-  lcd.setCursor(pos,1);
+  cursor_position--;
+  if (cursor_position < 0) cursor_position = 0;
+  else if (cursor_position == 2) cursor_position = 1;
+  lcd.setCursor(cursor_position,1);
 }
 
 void cursorRight() {
 
-  pos++;
-  if (pos > 4) pos = 4;
-  else if (pos == 2) pos = 3;
-  lcd.setCursor(pos,1);
+  cursor_position++;
+  if (cursor_position > 4) cursor_position = 4;
+  else if (cursor_position == 2) cursor_position = 3;
+  lcd.setCursor(cursor_position,1);
 }
 
-void cursorDown() {
+void setTemp(boolean positive) {
 
   lcd.setCursor(0,1);
 
-  if (menu == info1) {
+  double add = getSize(positive);
 
-    if (pos == 0) {
-      if (temp1 >= 10) temp1 -= 10;
-      if (temp1 < 10) lcd.print(0);
-    }
-    lcd.print(temp1);
+  if (menu == sample_info) {
+
+    sample_set += add;
+
+    if (sample_set < 0) sample_set -= add;
+    else if (sample_set >= 100) sample_set -= add;
+    if (sample_set < 10) lcd.print(0);
+    lcd.print(sample_set);
+  }
+  else if (menu == chamber_info) {
+
+    chamber_set += add;
+
+    if (chamber_set < 0) chamber_set -= add;
+    else if (chamber_set >= 100) chamber_set -= add;
+    if (chamber_set < 10) lcd.print(0);
+    lcd.print(chamber_set);
   }
   
-  lcd.setCursor(pos,1);
+  lcd.setCursor(cursor_position,1);
 }
 
-void cursorUp() {
+double getSize(boolean positive) {
 
-  lcd.setCursor(0,1);
+  double out = 0;
 
-  if (menu == info1) {
-      
-    if (temp1 < 90) temp1 += 10;
-    if (temp1 < 10) lcd.print(0);
-    lcd.print(temp1);
-  }
+  if (cursor_position == 0) out = 10;
+  else if (cursor_position == 1) out = 1;
+  else if (cursor_position == 3) out = 0.1;
+  else if (cursor_position == 4) out = 0.01;
 
-  lcd.setCursor(pos,1);
+  if (!positive) out *= -1;
+
+  return out;
 }
 
+void printDouble(double in) {
+
+  String prefix = "";
+
+  if (in < 10 && in >= 0) prefix = "  ";
+  else if (in >= 10 || (in < 0 && in > -10)) prefix = " ";
+
+  lcd.print(prefix+in);
+}
